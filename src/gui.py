@@ -1,21 +1,22 @@
 import sys
 
-
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTextEdit, QAction, qApp, QMessageBox, QDesktopWidget, QToolBar
+from PyQt5.QtGui import QIcon, QPixmap, QMovie
+from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QMessageBox, QDesktopWidget, QLabel, QSizePolicy, \
+    QGraphicsItem
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QByteArray, Qt
 
 from src.gui_controller import GuiController
 
 
 class MainWindow(QMainWindow):
-
+    inference_computed_signal = pyqtSignal()
     @property
     def IMAGES_PATH(self):
         return './images'
 
     def __init__(self):
         super().__init__()
-        self.console_log = None
+        self.pianoroll_img = None
         self.play_btn = None
         self.pause_btn = None
         self.stop_btn = None
@@ -37,9 +38,12 @@ class MainWindow(QMainWindow):
         self.move(qr.topLeft())
 
     def init_central_widget(self):
-        self.console_log = QTextEdit()
-        self.console_log.setEnabled(False)
-        self.setCentralWidget(self.console_log)
+        self.pianoroll_img = QPixmap('./exp/default/results/inference/images/fake_x_hard_thresholding_colored/fake_x_hard_thresholding_colored_0.png')
+        self.pianoroll_lbl = QLabel(self)
+        self.pianoroll_lbl.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.pianoroll_lbl.setAlignment(Qt.AlignCenter)
+        self.pianoroll_lbl.setPixmap(self.pianoroll_img)
+        self.setCentralWidget(self.pianoroll_lbl)
 
     def init_status_bar(self):
         self.statusBar().showMessage('Ready')
@@ -69,16 +73,34 @@ class MainWindow(QMainWindow):
     def init_gan_actions(self, menu_folders, tool_bar_actions):
         menu_folders['&GAN'] = []
         tool_bar_actions['GAN'] = []
+        self.init_loading_animation()
         self.init_run_inference_button(menu_folders, tool_bar_actions)
-        pass
+
+    def init_loading_animation(self):
+        self.loading_gif = QMovie(self.IMAGES_PATH + '/loading.gif', QByteArray(), self)
 
     def init_run_inference_button(self, menu_folders, tool_bar_actions):
         run_inference = QAction(QIcon(self.IMAGES_PATH + '/run_inference.png'), 'Run &Inference', self)
         run_inference.setShortcut('Ctrl+I')
         run_inference.setStatusTip('Run inference')
-        run_inference.triggered.connect(lambda: GuiController.run_inference(self.console_log))
+        self.inference_computed_signal.connect(self.inference_computed_callback)
+        run_inference.triggered.connect(self.run_inference_pressed)
         menu_folders['&GAN'].append(run_inference)
         tool_bar_actions['GAN'].append(run_inference)
+
+    @pyqtSlot()
+    def run_inference_pressed(self):
+        self.pianoroll_lbl.clear()
+        self.pianoroll_lbl.setMovie(self.loading_gif)
+        self.loading_gif.start()
+        self.stop_button_slot()
+        self.play_btn.setEnabled(False)
+        GuiController.run_inference(self.inference_computed_signal)
+
+    @pyqtSlot()
+    def inference_computed_callback(self):
+        self.init_central_widget()
+        self.play_btn.setEnabled(True)
 
     def init_playback_actions(self, menu_folders, tool_bar_actions):
         menu_folders['&Player'] = []

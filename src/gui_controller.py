@@ -1,3 +1,4 @@
+import threading
 from subprocess import Popen, PIPE
 from src import playback
 
@@ -5,15 +6,14 @@ from src import playback
 class GuiController:
 
     @staticmethod
-    def run_inference(log_area):
-        proc = Popen("./scripts/run_inference.sh \"./exp/default/\" \"0\"",
-                     shell=True,
-                     stdout=PIPE)
-        # while True:
-        #     line = proc.stdout.readline()
-        #     if not line:
-        #         break
-        #     log_area.append(line)
+    def run_inference(onExit):
+        def runInThread(onExit):
+            proc = Popen("./scripts/run_inference.sh \"./exp/default/\" \"0\"", shell=True, stdout=PIPE)
+            proc.wait()
+            onExit.emit()
+            return
+        thread = threading.Thread(target=runInThread, args=(onExit,))
+        thread.start()
 
     @staticmethod
     def play():
